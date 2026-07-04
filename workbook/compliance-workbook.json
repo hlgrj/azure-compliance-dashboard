@@ -168,19 +168,19 @@
                     "operator": "==",
                     "thresholdValue": "Critical",
                     "representation": "critical",
-                    "text": ""
+                    "text": "{0}"
                   },
                   {
                     "operator": "==",
                     "thresholdValue": "Warning",
                     "representation": "warning",
-                    "text": ""
+                    "text": "{0}"
                   },
                   {
                     "operator": "Default",
                     "thresholdValue": null,
                     "representation": "info",
-                    "text": ""
+                    "text": "{0}"
                   }
                 ]
               }
