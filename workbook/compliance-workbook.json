@@ -186,7 +186,7 @@
               }
             }
           ],
-          "rowLimit": 500,
+          "rowLimit": 10000,
           "filter": true
         }
       },
