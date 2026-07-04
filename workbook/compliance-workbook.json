@@ -38,6 +38,54 @@
             "isRequired": true,
             "hidden": true,
             "value": "Overview"
+          },
+          {
+            "id": "e2f43c9d-8d8c-4a2f-a04a-3c4d5e6f7a8b",
+            "version": "KqlParameterItem/1.0",
+            "name": "Initiative",
+            "label": "Policy / Initiative",
+            "type": 2,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "PolicyResources\n| limit 1\n| project value = 'All', label = 'All'\n| union (\n    PolicyResources\n    | where type == 'microsoft.authorization/policyassignments'\n    | project value = tostring(properties.displayName), label = tostring(properties.displayName)\n    | order by label asc\n  )",
+            "crossComponentResources": [
+              "value::tenant"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [],
+              "showDefault": false
+            },
+            "value": [
+              "All"
+            ],
+            "queryType": 1,
+            "resourceType": "microsoft.resources/tenants"
+          },
+          {
+            "id": "f3a54d0e-9e9d-4b3f-b15b-4d5e6f7a8b9c",
+            "version": "KqlParameterItem/1.0",
+            "name": "ResourceType",
+            "label": "Resource Type",
+            "type": 2,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "PolicyResources\n| limit 1\n| project value = 'All', label = 'All'\n| union (\n    PolicyResources\n    | where type == 'microsoft.policyinsights/policystates'\n    | where properties.complianceState == 'NonCompliant'\n    | extend rt = tolower(tostring(properties.resourceType))\n    | project value = rt, label = rt\n    | distinct value, label\n    | order by label asc\n  )",
+            "crossComponentResources": [
+              "{Subscription}"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [],
+              "showDefault": false
+            },
+            "value": [
+              "All"
+            ],
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources"
           }
         ],
         "style": "pills",
@@ -147,7 +195,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "PolicyResources\n| where type == 'microsoft.policyinsights/policystates'\n| where properties.complianceState == 'NonCompliant'\n| where strcat('/subscriptions/', tostring(properties.subscriptionId)) in ({Subscription})\n| extend ResourceId = tostring(properties.resourceId),\n         ResourceType = tostring(properties.resourceType),\n         PolicyAssignmentIdKey = tolower(tostring(properties.policyAssignmentId)),\n         PolicyDefinitionReferenceId = tostring(properties.policyDefinitionReferenceId),\n         Effect = tolower(tostring(properties.policyDefinitionAction))\n| extend Urgency = case(\n    Effect in ('deny', 'deployifnotexists', 'modify'), 'Critical',\n    Effect in ('auditifnotexists', 'audit'), 'Warning',\n    'Informational'),\n  UrgencyRank = case(\n    Effect in ('deny', 'deployifnotexists', 'modify'), 0,\n    Effect in ('auditifnotexists', 'audit'), 1,\n    2)\n| join kind=leftouter (\n    PolicyResources\n    | where type == 'microsoft.authorization/policyassignments'\n    | project PolicyAssignmentIdKey = tolower(id), AssignmentDisplayName = tostring(properties.displayName)\n  ) on PolicyAssignmentIdKey\n| join kind=leftouter (\n    PolicyResources\n    | where type == 'microsoft.authorization/policyassignments'\n    | project PolicyAssignmentIdKey = tolower(id), NonComplianceMessages = properties.nonComplianceMessages\n    | mv-expand Msg = NonComplianceMessages\n    | extend MsgRefId = tostring(Msg.policyDefinitionReferenceId), MsgText = tostring(Msg.message)\n    | where isnotempty(MsgRefId)\n    | project PolicyAssignmentIdKey, PolicyDefinitionReferenceId = MsgRefId, SpecificMessage = MsgText\n  ) on PolicyAssignmentIdKey, PolicyDefinitionReferenceId\n| join kind=leftouter (\n    PolicyResources\n    | where type == 'microsoft.authorization/policyassignments'\n    | project PolicyAssignmentIdKey = tolower(id), NonComplianceMessages = properties.nonComplianceMessages\n    | mv-expand Msg = NonComplianceMessages\n    | extend MsgRefId = tostring(Msg.policyDefinitionReferenceId), MsgText = tostring(Msg.message)\n    | where isempty(MsgRefId)\n    | project PolicyAssignmentIdKey, DefaultMessage = MsgText\n  ) on PolicyAssignmentIdKey\n| extend GuidanceMessage = coalesce(SpecificMessage, DefaultMessage, \"No guidance authored yet for this policy.\")\n| sort by UrgencyRank asc, AssignmentDisplayName asc\n| project Urgency, AssignmentDisplayName, GuidanceMessage, ResourceId, PolicyDefinitionReferenceId, Effect, ResourceType\n",
+        "query": "PolicyResources\n| where type == 'microsoft.policyinsights/policystates'\n| where properties.complianceState == 'NonCompliant'\n| where strcat('/subscriptions/', tostring(properties.subscriptionId)) in ({Subscription})\n| extend ResourceId = tostring(properties.resourceId),\n         ResourceType = tostring(properties.resourceType),\n         PolicyAssignmentIdKey = tolower(tostring(properties.policyAssignmentId)),\n         PolicyDefinitionReferenceId = tostring(properties.policyDefinitionReferenceId),\n         Effect = tolower(tostring(properties.policyDefinitionAction))\n| extend Urgency = case(\n    Effect in ('deny', 'deployifnotexists', 'modify'), 'Critical',\n    Effect in ('auditifnotexists', 'audit'), 'Warning',\n    'Informational'),\n  UrgencyRank = case(\n    Effect in ('deny', 'deployifnotexists', 'modify'), 0,\n    Effect in ('auditifnotexists', 'audit'), 1,\n    2)\n| join kind=leftouter (\n    PolicyResources\n    | where type == 'microsoft.authorization/policyassignments'\n    | project PolicyAssignmentIdKey = tolower(id), AssignmentDisplayName = tostring(properties.displayName)\n  ) on PolicyAssignmentIdKey\n| join kind=leftouter (\n    PolicyResources\n    | where type == 'microsoft.authorization/policyassignments'\n    | project PolicyAssignmentIdKey = tolower(id), NonComplianceMessages = properties.nonComplianceMessages\n    | mv-expand Msg = NonComplianceMessages\n    | extend MsgRefId = tostring(Msg.policyDefinitionReferenceId), MsgText = tostring(Msg.message)\n    | where isnotempty(MsgRefId)\n    | project PolicyAssignmentIdKey, PolicyDefinitionReferenceId = MsgRefId, SpecificMessage = MsgText\n  ) on PolicyAssignmentIdKey, PolicyDefinitionReferenceId\n| join kind=leftouter (\n    PolicyResources\n    | where type == 'microsoft.authorization/policyassignments'\n    | project PolicyAssignmentIdKey = tolower(id), NonComplianceMessages = properties.nonComplianceMessages\n    | mv-expand Msg = NonComplianceMessages\n    | extend MsgRefId = tostring(Msg.policyDefinitionReferenceId), MsgText = tostring(Msg.message)\n    | where isempty(MsgRefId)\n    | project PolicyAssignmentIdKey, DefaultMessage = MsgText\n  ) on PolicyAssignmentIdKey\n| extend GuidanceMessage = coalesce(SpecificMessage, DefaultMessage, \"No guidance authored yet for this policy.\")\n| where 'All' in ({Initiative}) or AssignmentDisplayName in ({Initiative})\n| where 'All' in ({ResourceType}) or tolower(ResourceType) in ({ResourceType})\n| sort by UrgencyRank asc, AssignmentDisplayName asc\n| project Urgency, AssignmentDisplayName, GuidanceMessage, ResourceId, PolicyDefinitionReferenceId, Effect, ResourceType\n",
         "size": 3,
         "queryType": 1,
         "visualization": "table",
