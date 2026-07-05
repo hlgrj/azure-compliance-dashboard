@@ -1,0 +1,41 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workbookDisplayName": {
+      "type": "string",
+      "defaultValue": "Tenant Compliance Rollup (Platform Team)"
+    },
+    "workbookSourceId": {
+      "type": "string",
+      "defaultValue": "Azure Monitor"
+    },
+    "workbookId": {
+      "type": "string",
+      "defaultValue": "[newGuid()]"
+    }
+  },
+  "resources": [
+    {
+      "name": "[parameters('workbookId')]",
+      "type": "Microsoft.Insights/workbooks",
+      "location": "[resourceGroup().location]",
+      "kind": "shared",
+      "apiVersion": "2018-06-17-preview",
+      "dependsOn": [],
+      "properties": {
+        "displayName": "[parameters('workbookDisplayName')]",
+        "serializedData": "{\"version\":\"Notebook/1.0\",\"items\":[{\"type\":1,\"content\":{\"json\":\"# Tenant Compliance Rollup (Platform Team)\\n\\n**This view requires broad Reader access across the tenant** \\u2014 it shows every subscription's non-compliance, not just your own. If a subscription looks like it's missing or shows zero findings, check your own access to it before assuming it's actually clean; Resource Graph only shows what your own identity can see, the same as the owner-facing Workbook, just at a wider scope here.\\n\\nThis is intentionally a **separate Workbook** from the owner-facing one, not an extra tab on it \\u2014 most subscription owners don't have (and shouldn't need) the access this page requires, and bolting it onto their Workbook would just show them a confusing, empty tab.\"},\"name\":\"text - heading\"},{\"type\":3,\"content\":{\"version\":\"KqlItem/1.0\",\"query\":\"PolicyResources\\n| where type == 'microsoft.policyinsights/policystates'\\n| where properties.complianceState == 'NonCompliant'\\n| extend ResourceIdStr = tostring(properties.resourceId), SubscriptionId = tostring(properties.subscriptionId)\\n| summarize TotalNonCompliantResources = dcount(ResourceIdStr), SubscriptionsAffected = dcount(SubscriptionId)\",\"size\":1,\"queryType\":1,\"resourceType\":\"microsoft.resources/tenants\",\"crossComponentResources\":[\"value::tenant\"],\"visualization\":\"table\",\"gridSettings\":{\"rowLimit\":1,\"filter\":false}},\"name\":\"query - tenant summary\"},{\"type\":1,\"content\":{\"json\":\"## Non-Compliant Resources by Subscription\"},\"name\":\"text - grid heading\"},{\"type\":3,\"content\":{\"version\":\"KqlItem/1.0\",\"query\":\"PolicyResources\\n| where type == 'microsoft.policyinsights/policystates'\\n| where properties.complianceState == 'NonCompliant'\\n| extend SubscriptionId = tostring(properties.subscriptionId), ResourceIdStr = tostring(properties.resourceId)\\n| summarize NonCompliantResources = dcount(ResourceIdStr) by SubscriptionId\\n| join kind=leftouter (\\n    ResourceContainers\\n    | where type == 'microsoft.resources/subscriptions'\\n    | project SubscriptionId = subscriptionId, SubscriptionName = name\\n  ) on SubscriptionId\\n| project SubscriptionName, NonCompliantResources\\n| order by NonCompliantResources desc\",\"size\":1,\"queryType\":1,\"resourceType\":\"microsoft.resources/tenants\",\"crossComponentResources\":[\"value::tenant\"],\"visualization\":\"categoricalbar\"},\"name\":\"query - by subscription bar\"},{\"type\":3,\"content\":{\"version\":\"KqlItem/1.0\",\"query\":\"PolicyResources\\n| where type == 'microsoft.policyinsights/policystates'\\n| where properties.complianceState == 'NonCompliant'\\n| extend SubscriptionId = tostring(properties.subscriptionId),\\n         Effect = tolower(tostring(properties.policyDefinitionAction)),\\n         ResourceIdStr = tostring(properties.resourceId)\\n| extend Urgency = case(\\n    Effect in ('deny', 'deployifnotexists', 'modify'), 'Critical',\\n    Effect in ('auditifnotexists', 'audit'), 'Warning',\\n    'Informational')\\n| summarize NonCompliantResources = dcount(ResourceIdStr),\\n            Critical = dcountif(ResourceIdStr, Urgency == 'Critical'),\\n            Warning = dcountif(ResourceIdStr, Urgency == 'Warning')\\n  by SubscriptionId\\n| join kind=leftouter (\\n    ResourceContainers\\n    | where type == 'microsoft.resources/subscriptions'\\n    | project SubscriptionId = subscriptionId, SubscriptionName = name\\n  ) on SubscriptionId\\n| project SubscriptionName, SubscriptionId, NonCompliantResources, Critical, Warning\\n| order by NonCompliantResources desc\\n\",\"size\":3,\"queryType\":1,\"resourceType\":\"microsoft.resources/tenants\",\"crossComponentResources\":[\"value::tenant\"],\"visualization\":\"table\",\"gridSettings\":{\"rowLimit\":10000,\"filter\":true}},\"name\":\"query - by subscription grid\"}],\"isLocked\":false,\"fallbackResourceIds\":[\"Azure Monitor\"]}",
+        "version": "1.0",
+        "sourceId": "[parameters('workbookSourceId')]",
+        "category": "workbook"
+      }
+    }
+  ],
+  "outputs": {
+    "workbookId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Insights/workbooks', parameters('workbookId'))]"
+    }
+  }
+}
